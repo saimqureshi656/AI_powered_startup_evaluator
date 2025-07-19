@@ -31,7 +31,8 @@ def load_lora_model(lora_model_id):
     base = AutoModelForCausalLM.from_pretrained(
         base_model,
         quantization_config=bnb_config,
-        device_map="auto" if device == "cuda" else {"": device},
+        device_map="auto" if device == "cuda" else None,
+        torch_dtype=torch.float32,
         trust_remote_code=True
     )
 
