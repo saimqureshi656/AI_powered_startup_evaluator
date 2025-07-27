@@ -5,19 +5,19 @@ import os
 from dotenv import load_dotenv
 from huggingface_hub import login
 
+# Load Hugging Face token from .env file
 load_dotenv()
 hf_token = os.getenv("HF_TOKEN")
-# Hugging Face login
-login(token=hf_token)  # Replace with your token
+login(token=hf_token)
 
+# Constants
 base_model = "meta-llama/Meta-Llama-3-8B"
-question_model_id = "saimqureshi656/startups-question-generation"
-evaluation_model_id = "saimqureshi656/llama3-8b-startup-evaluator-lora"
-
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+# Shared tokenizer (same for both LoRA models)
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 
+# BitsAndBytes config for 4-bit loading
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_use_double_quant=True,
@@ -25,14 +25,16 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.float16
 )
 
-def load_lora_model(lora_model_id):
+# Simple in-memory cache for loaded models
+loaded_model_cache = {}
+
+def load_lora_model(lora_model_id: str):
     print(f"🔄 Loading model: {lora_model_id} on {device.upper()}")
 
     base = AutoModelForCausalLM.from_pretrained(
         base_model,
         quantization_config=bnb_config,
         device_map="auto" if device == "cuda" else None,
-        torch_dtype=torch.float32,
         trust_remote_code=True
     )
 
@@ -40,8 +42,15 @@ def load_lora_model(lora_model_id):
     model.eval()
     return model
 
-question_model = load_lora_model(question_model_id)
-evaluation_model = load_lora_model(evaluation_model_id)
+def get_model(lora_model_id: str):
+    if lora_model_id in loaded_model_cache:
+        return loaded_model_cache[lora_model_id]
+
+    # Clear GPU memory before loading a new model
+    torch.cuda.empty_cache()
+    model = load_lora_model(lora_model_id)
+    loaded_model_cache[lora_model_id] = model
+    return model
 
 def generate_response(model, prompt: str) -> str:
     inputs = tokenizer(prompt, return_tensors="pt").to(device)
