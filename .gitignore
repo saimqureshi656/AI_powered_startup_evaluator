@@ -1,1 +1,12 @@
-.env 
+# Python
+__pycache__/
+*.pyc
+
+# Env
+.env
+
+# System
+.DS_Store
+
+# Streamlit cache (optional)
+.streamlit/
